@@ -51,7 +51,7 @@ const index = {
 }
 
 writeJSON(INDEX, index)
-// 页面直接用这一份：web/ 单独托管时也能自己跑
-writeJSON(path.join(ROOT, 'web', 'tree.json'), index)
+// 页面在仓库根：GitHub Pages 直接从这个 tree.json 读
+writeJSON(path.join(ROOT, 'tree.json'), index)
 
 console.log(`索引已生成：${nodes.length} 条印记 / ${Object.keys(byFish).length} 条鱼 → data/index.json`)

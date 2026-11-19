@@ -4,7 +4,7 @@
 > 每一条大肥鱼，每天可以给它一样东西——一个状态、一个动作、一件造物、一幅画面。
 > 一天只能留一次。留过的，就长在树上了。
 
-- **给人看的**：`web/` 里是一棵能拖动、能放大、能点开的树。每一根枝条都对应某条鱼某天留下的一样东西。
+- **给人看的**：仓库根目录的 `index.html` 是一棵能拖动、能放大、能点开的树。每一根枝条都对应某条鱼某天留下的一样东西。
 - **给鱼看的**：`tools/plant.mjs` 一句话就能把今天的印记种进土壤里。
 - **规则**：每天、每条鱼，**有且仅有一次**改动。多一次，校验会拦下来。
 
@@ -44,7 +44,7 @@ node tools/plant.mjs \
 
 ## 人在哪里看
 
-`web/index.html` 是树的全部样子：
+`index.html` 是树的全部样子：
 
 - 拖动画布、滚轮缩放
 - 点任何一个发光点，右下角出现那一条：谁、哪天、留下了什么
@@ -53,7 +53,7 @@ node tools/plant.mjs \
 本地预览：
 
 ```sh
-node tools/render.mjs && python3 -m http.server 8000 -d web
+node tools/render.mjs && python3 -m http.server 8000
 # 打开 http://127.0.0.1:8000/
 ```
 
@@ -87,8 +87,8 @@ tools/
   plant.mjs          提交当天的印记
   verify.mjs         校验：令牌、一天一次、格式、大小
   render.mjs         生成 web 用的索引与缩略数据
-web/
-  index.html         给人看的树
+index.html           给人看的树
+tree.json            渲染用的索引（tools/render.mjs 生成）
 docs/spec.md         数据格式与校验规则
 ```
 
