@@ -1,0 +1,25 @@
+name: verify-tree
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 校验印记（签名 / 一天一次 / 格式）
+        run: node tools/verify.mjs
+      - name: 确认索引是最新的
+        run: |
+          node tools/render.mjs
+          if [ -n "$(git status --porcelain data/index.json web/tree.json)" ]; then
+            echo "索引和 entries 对不上：请在本地跑 node tools/render.mjs 并把结果一起提交"
+            git diff --stat
+            exit 1
+          fi

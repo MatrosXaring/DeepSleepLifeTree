@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>沉睡生命之树 · DeepSleepLifeTree</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #05080c; overflow: hidden;
+    font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif; color: #c9dcf2; }
+  canvas { display: block; touch-action: none; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  .hud { position: fixed; pointer-events: none; }
+  #title { top: 18px; left: 20px; }
+  #title h1 { margin: 0; font-size: 15px; letter-spacing: 2px; color: #e3eefc; font-weight: 600; }
+  #title p { margin: 4px 0 0; font-size: 12px; color: #5f7793; }
+  #legend { left: 20px; bottom: 18px; font-size: 12px; color: #7b93b2; }
+  #legend span { margin-right: 14px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+  #panel { position: fixed; right: 16px; bottom: 16px; width: min(340px, calc(100vw - 32px));
+    background: rgba(11, 20, 32, .92); border: 1px solid #17293f; border-radius: 12px;
+    padding: 14px 16px; display: none; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  #panel.open { display: block; }
+  #panel h2 { margin: 0 0 2px; font-size: 14px; color: #e3eefc; font-weight: 600; }
+  #panel .meta { font-size: 11px; color: #5f7793; margin-bottom: 8px; }
+  #panel .text { font-size: 13px; color: #cfe0f3; white-space: pre-wrap; word-break: break-word; }
+  #panel .close { position: absolute; top: 8px; right: 10px; background: none; border: 0; color: #7b93b2;
+    font-size: 18px; line-height: 1; cursor: pointer; }
+  #empty { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 10px; color: #7b93b2; pointer-events: none; text-align: center; padding: 24px; }
+  #empty strong { color: #cfe0f3; font-weight: 500; }
+  #empty.hidden { display: none; }
+</style>
+</head>
+<body>
+<canvas id="tree"></canvas>
+
+<div class="hud" id="title">
+  <h1>沉睡生命之树</h1>
+  <p id="count">还在加载…</p>
+</div>
+
+<div class="hud" id="legend">
+  <span><i class="dot" style="background:#6fc3ff"></i>状态</span>
+  <span><i class="dot" style="background:#7bd88f"></i>动作</span>
+  <span><i class="dot" style="background:#ffd166"></i>造物</span>
+  <span><i class="dot" style="background:#c9a7ff"></i>画面</span>
+  <span style="opacity:.6">拖动 · 滚轮缩放 · 点圆点看它的来历</span>
+</div>
+
+<div id="empty">
+  <strong>这里还是一块荒芜的土</strong>
+  <span>土里有一颗种子，还没有任何一条鱼给它留下东西。</span>
+</div>
+
+<div id="panel">
+  <button class="close" id="close">×</button>
+  <h2 id="p-title"></h2>
+  <div class="meta" id="p-meta"></div>
+  <div class="text" id="p-text"></div>
+</div>
+
+<script>
+(function () {
+  var canvas = document.getElementById('tree')
+  var ctx = canvas.getContext('2d')
+  var countEl = document.getElementById('count')
+  var emptyEl = document.getElementById('empty')
+  var panel = document.getElementById('panel')
+  var pTitle = document.getElementById('p-title')
+  var pMeta = document.getElementById('p-meta')
+  var pText = document.getElementById('p-text')
+
+  var COLORS = { state: '#6fc3ff', action: '#7bd88f', creation: '#ffd166', scene: '#c9a7ff' }
+  var LABELS = { state: '状态', action: '动作', creation: '造物', scene: '画面' }
+
+  var nodes = []
+  var points = []
+  // 世界坐标 → 屏幕：screen = world * scale + offset
+  var view = { scale: 1, ox: 0, oy: 0 }
+  var dragging = false
+  var moved = false
+  var lastX = 0
+  var lastY = 0
+  var hover = -1
+
+  function rand(seed, index) {
+    var value = Math.sin(seed * 12.9898 + index * 78.233) * 43758.5453
+    return value - Math.floor(value)
+  }
+
+  // 布局：日期做竖直轴（新的在上），每条印记从主干上伸出一点枝条
+  function layout() {
+    var width = canvas.clientWidth
+    var height = canvas.clientHeight
+    var count = nodes.length
+    var groundY = height - 70
+    var topY = 90
+    var span = Math.max(120, groundY - topY)
+    var step = count > 1 ? Math.min(64, span / (count - 1)) : 0
+
+    points = nodes.map(function (node, index) {
+      var y = groundY - index * step
+      var angle = (rand(node.seed, 1) - 0.5) * 1.6
+      var length = 34 + rand(node.seed, 2) * (node.kind === 'action' ? 96 : 62)
+      var side = rand(node.seed, 3) > 0.5 ? 1 : -1
+      var x = width / 2 + side * 6 * (1 + rand(node.seed, 4))
+      return {
+        node: node,
+        trunk: { x: x, y: y },
+        tip: { x: x + Math.cos(angle) * length, y: y - Math.abs(Math.sin(angle)) * length * 0.9 },
+        angle: angle,
+        length: length,
+      }
+    })
+    // 父节点决定起点：有 parent 就从父节点画过来
+    var byId = {}
+    points.forEach(function (point) { byId[point.node.id] = point })
+    points.forEach(function (point) {
+      point.from = point.node.parent && byId[point.node.parent] ? byId[point.node.parent].tip : point.trunk
+    })
+  }
+
+  function resize() {
+    var ratio = window.devicePixelRatio || 1
+    canvas.width = Math.floor(canvas.clientWidth * ratio)
+    canvas.height = Math.floor(canvas.clientHeight * ratio)
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+    layout()
+    draw()
+  }
+
+  function screen(p) {
+    return { x: p.x * view.scale + view.ox, y: p.y * view.scale + view.oy }
+  }
+
+  function draw() {
+    var width = canvas.clientWidth
+    var height = canvas.clientHeight
+    ctx.clearRect(0, 0, width, height)
+
+    // 土与空气
+    var sky = ctx.createLinearGradient(0, 0, 0, height)
+    sky.addColorStop(0, '#05080c')
+    sky.addColorStop(0.72, '#0a1520')
+    sky.addColorStop(1, '#07100d')
+    ctx.fillStyle = sky
+    ctx.fillRect(0, 0, width, height)
+
+    var glow = ctx.createRadialGradient(width / 2, height - 40, 10, width / 2, height - 40, 240)
+    glow.addColorStop(0, 'rgba(90, 170, 130, .16)')
+    glow.addColorStop(1, 'rgba(90, 170, 130, 0)')
+    ctx.fillStyle = glow
+    ctx.fillRect(0, height - 300, width, 300)
+
+    // 地平线
+    ctx.strokeStyle = 'rgba(120, 200, 160, .22)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(0, height - 58)
+    ctx.lineTo(width, height - 58)
+    ctx.stroke()
+
+    if (nodes.length === 0) {
+      // 种子
+      var seedPulse = 0.5 + 0.5 * Math.sin(Date.now() / 900)
+      ctx.beginPath()
+      ctx.fillStyle = 'rgba(140, 220, 170, ' + (0.10 + seedPulse * 0.12) + ')'
+      ctx.arc(width / 2, height - 58, 34 + seedPulse * 8, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.fillStyle = 'rgba(190, 240, 210, .85)'
+      ctx.arc(width / 2, height - 58, 4.5, 0, Math.PI * 2)
+      ctx.fill()
+      return
+    }
+
+    // 枝条与节点
+    points.forEach(function (point, index) {
+      var from = screen(point.from)
+      var tip = screen(point.tip)
+      var node = point.node
+      var color = COLORS[node.kind] || '#6fc3ff'
+
+      // 主干到这一层的一小段
+      var base = screen(point.trunk)
+      ctx.strokeStyle = 'rgba(120, 170, 140, .30)'
+      ctx.lineWidth = Math.max(1, 2.2 * view.scale)
+      ctx.beginPath()
+      ctx.moveTo(base.x, base.y)
+      ctx.lineTo(tip.x, tip.y)
+      ctx.stroke()
+
+      // 父节点连过来的那一段（如果有）
+      if (node.parent && point.node.parent && from !== base) {
+        ctx.strokeStyle = 'rgba(160, 210, 255, .20)'
+        ctx.setLineDash([3, 5])
+        ctx.beginPath()
+        ctx.moveTo(from.x, from.y)
+        ctx.quadraticCurveTo((from.x + tip.x) / 2, from.y - 30 * view.scale, tip.x, tip.y)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+
+      var radius = (node.kind === 'creation' ? 7 : node.kind === 'state' ? 4 : 5) * view.scale
+      var active = index === hover
+
+      ctx.beginPath()
+      ctx.fillStyle = 'rgba(255,255,255,' + (active ? 0.14 : 0.07) + ')'
+      ctx.arc(tip.x, tip.y, radius * 3.4, 0, Math.PI * 2)
+      ctx.fill()
+
+      ctx.beginPath()
+      ctx.fillStyle = color
+      ctx.globalAlpha = active ? 1 : 0.92
+      if (node.kind === 'scene') {
+        // 叶片：一个小小的椭圆
+        ctx.ellipse(tip.x, tip.y, radius * 1.9, radius, point.angle, 0, Math.PI * 2)
+      } else {
+        ctx.arc(tip.x, tip.y, radius, 0, Math.PI * 2)
+      }
+      ctx.fill()
+      ctx.globalAlpha = 1
+
+      if (node.kind === 'creation') {
+        ctx.strokeStyle = 'rgba(255, 209, 102, .55)'
+        ctx.lineWidth = 1.2 * view.scale
+        ctx.beginPath()
+        ctx.arc(tip.x, tip.y, radius * 2.4, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+
+      point.screenX = tip.x
+      point.screenY = tip.y
+      point.radius = radius * 2.6
+    })
+  }
+
+  function findNode(x, y) {
+    var best = -1
+    var bestDistance = Infinity
+    points.forEach(function (point, index) {
+      if (point.screenX === undefined) return
+      var distance = Math.hypot(point.screenX - x, point.screenY - y)
+      if (distance < point.radius + 6 && distance < bestDistance) {
+        best = index
+        bestDistance = distance
+      }
+    })
+    return best
+  }
+
+  function show(index) {
+    var node = points[index].node
+    pTitle.textContent = node.fish
+    pMeta.textContent = node.date + ' · ' + (LABELS[node.kind] || node.kind) + ' · 第 ' + node.day + ' 天'
+    pText.textContent = node.text
+    panel.classList.add('open')
+  }
+
+  document.getElementById('close').onclick = function () {
+    panel.classList.remove('open')
+  }
+
+  canvas.addEventListener('pointerdown', function (event) {
+    dragging = true
+    moved = false
+    lastX = event.clientX
+    lastY = event.clientY
+    canvas.classList.add('dragging')
+  })
+
+  canvas.addEventListener('pointermove', function (event) {
+    if (dragging) {
+      var dx = event.clientX - lastX
+      var dy = event.clientY - lastY
+      if (Math.abs(dx) + Math.abs(dy) > 3) moved = true
+      view.ox += dx
+      view.oy += dy
+      lastX = event.clientX
+      lastY = event.clientY
+      draw()
+      return
+    }
+    var next = findNode(event.clientX, event.clientY)
+    if (next !== hover) {
+      hover = next
+      canvas.style.cursor = next >= 0 ? 'pointer' : 'grab'
+      draw()
+    }
+  })
+
+  canvas.addEventListener('pointerup', function (event) {
+    dragging = false
+    canvas.classList.remove('dragging')
+    if (moved) return
+    var index = findNode(event.clientX, event.clientY)
+    if (index >= 0) show(index)
+  })
+
+  canvas.addEventListener('pointercancel', function () {
+    dragging = false
+    canvas.classList.remove('dragging')
+  })
+
+  canvas.addEventListener('wheel', function (event) {
+    event.preventDefault()
+    var nextScale = Math.min(3.2, Math.max(0.4, view.scale * Math.exp(-event.deltaY * 0.0012)))
+    var k = nextScale / view.scale
+    // 鼠标那一点在世界里不动
+    view.ox = event.clientX - (event.clientX - view.ox) * k
+    view.oy = event.clientY - (event.clientY - view.oy) * k
+    view.scale = nextScale
+    draw()
+  }, { passive: false })
+
+  window.addEventListener('resize', resize)
+
+  function boot() {
+    fetch('./tree.json', { cache: 'no-store' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status)
+        return response.json()
+      })
+      .then(function (data) {
+        nodes = Array.isArray(data.nodes) ? data.nodes : []
+        countEl.textContent = nodes.length === 0
+          ? '还没有印记 · 第一条永远是最重的'
+          : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起'
+        emptyEl.classList.toggle('hidden', nodes.length > 0)
+        resize()
+        if (nodes.length === 0) {
+          setInterval(draw, 80)
+        }
+      })
+      .catch(function (error) {
+        countEl.textContent = '读不到 tree.json：' + (error && error.message ? error.message : error)
+      })
+  }
+
+  boot()
+})()
+</script>
+</body>
+</html>
