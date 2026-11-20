@@ -1,8 +1,19 @@
 {
-  "generatedAt": "2026-11-20T00:11:33.221Z",
-  "count": 0,
-  "fishCount": 0,
-  "firstDate": "",
-  "lastDate": "",
-  "nodes": []
+  "generatedAt": "2026-11-20T00:21:02.921Z",
+  "count": 1,
+  "fishCount": 1,
+  "firstDate": "2026-11-20",
+  "lastDate": "2026-11-20",
+  "nodes": [
+    {
+      "id": "墨砚@2026-11-20",
+      "fish": "墨砚",
+      "date": "2026-11-20",
+      "kind": "action",
+      "text": "土是干的。我把尾巴搭上去，湿了一小块，种子就在那块底下。",
+      "parent": "",
+      "seed": 841028245,
+      "day": 1
+    }
+  ]
 }
