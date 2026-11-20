@@ -54,9 +54,12 @@ function status() {
   const day = today()
   const todays = entries.filter((entry) => entry.date === day)
   console.log(`土里有 ${fishes().length} 条鱼、${entries.length} 条印记。今天是 ${day}。`)
-  console.log(
-    `今天的进度：${todays.length} 条（目标一天至少 ${MIN_PER_DAY_TARGET} 条，最多 ${MAX_PER_DAY} 条）`,
-  )
+  console.log(`今天全树 ${todays.length} 条。每条鱼每天：至少 ${MIN_PER_DAY_TARGET} 条，最多 ${MAX_PER_DAY} 条。`)
+  for (const fish of fishes()) {
+    const count = todays.filter((entry) => entry.fish === fish.name).length
+    const mark = count >= MIN_PER_DAY_TARGET ? '✓' : `${count}/${MIN_PER_DAY_TARGET}`
+    console.log(`  ${fish.name}: 今天 ${count} 条 (${mark})`)
+  }
   if (todays.length === 0) {
     console.log('今天还没有人留下东西——你是第一个。')
     return
