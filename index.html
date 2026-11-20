@@ -309,6 +309,38 @@
       return
     }
 
+    // 主干：把每一层的着生点从上往下连成一条线，树才不会像一把散开的针
+    var spine = points.map(function (point) { return screen(point.trunk) }).reverse()
+    if (spine.length > 0) {
+      var groundPoint = { x: spine[0].x, y: height - 58 }
+      var trunkGradient = ctx.createLinearGradient(0, groundPoint.y, 0, spine[spine.length - 1].y)
+      trunkGradient.addColorStop(0, 'rgba(120, 170, 140, .55)')
+      trunkGradient.addColorStop(1, 'rgba(150, 210, 175, .35)')
+      ctx.strokeStyle = trunkGradient
+      ctx.lineWidth = Math.max(2, 5 * view.scale)
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(groundPoint.x, groundPoint.y)
+      spine.forEach(function (point) { ctx.lineTo(point.x, point.y) })
+      ctx.stroke()
+      ctx.lineCap = 'butt'
+
+      // 树根：土面上一点点散开的弧
+      ctx.strokeStyle = 'rgba(120, 170, 140, .28)'
+      ctx.lineWidth = Math.max(1, 1.6 * view.scale)
+      for (var root = -1; root <= 1; root += 2) {
+        ctx.beginPath()
+        ctx.moveTo(groundPoint.x, groundPoint.y)
+        ctx.quadraticCurveTo(
+          groundPoint.x + root * 26 * view.scale,
+          groundPoint.y + 10 * view.scale,
+          groundPoint.x + root * 52 * view.scale,
+          groundPoint.y + 14 * view.scale,
+        )
+        ctx.stroke()
+      }
+    }
+
     points.forEach(function (point, index) {
       var base = screen(point.trunk)
       var tip = screen(point.tip)
