@@ -5,31 +5,84 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>沉睡生命之树 · DeepSleepLifeTree</title>
 <style>
-  :root { color-scheme: dark; }
-  html, body { margin: 0; height: 100%; background: #05080c; overflow: hidden;
-    font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif; color: #c9dcf2; }
+  :root {
+    color-scheme: dark;
+    --ink: #c9dcf2;
+    --ink-dim: #7b93b2;
+    --ink-strong: #e3eefc;
+    --line: #17293f;
+    --card: rgba(11, 20, 32, .92);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #05080c; overflow: hidden; color: var(--ink);
+    font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif; }
   canvas { display: block; touch-action: none; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
-  .hud { position: fixed; pointer-events: none; }
-  #title { top: 18px; left: 20px; }
-  #title h1 { margin: 0; font-size: 15px; letter-spacing: 2px; color: #e3eefc; font-weight: 600; }
-  #title p { margin: 4px 0 0; font-size: 12px; color: #5f7793; }
-  #legend { left: 20px; bottom: 18px; font-size: 12px; color: #7b93b2; }
-  #legend span { margin-right: 14px; }
+
+  .hud { position: fixed; pointer-events: none; z-index: 3; }
+  #title { top: max(16px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left)); }
+  #title h1 { margin: 0; font-size: 15px; letter-spacing: 2px; color: var(--ink-strong); font-weight: 600; }
+  #title p { margin: 4px 0 0; font-size: 12px; color: var(--ink-dim); }
+
+  #tools { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+    display: flex; gap: 8px; z-index: 4; }
+  #tools button { background: rgba(18, 30, 46, .92); color: #b9cde4; border: 1px solid #20344c;
+    border-radius: 9px; padding: 8px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; }
+  #tools button:hover { background: #1b2c42; color: var(--ink-strong); }
+  #tools button:active { transform: translateY(1px); }
+  #tools button.icon { padding: 8px 10px; font-size: 15px; line-height: 1; }
+
+  #legend { left: max(18px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom));
+    font-size: 12px; color: var(--ink-dim); max-width: calc(100vw - 40px); }
+  #legend span { margin-right: 14px; white-space: nowrap; }
+  #legend .hint { opacity: .65; }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+
   #panel { position: fixed; right: 16px; bottom: 16px; width: min(340px, calc(100vw - 32px));
-    background: rgba(11, 20, 32, .92); border: 1px solid #17293f; border-radius: 12px;
-    padding: 14px 16px; display: none; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+    max-height: min(60vh, 420px); overflow: auto; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px; display: none; z-index: 5;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); }
   #panel.open { display: block; }
-  #panel h2 { margin: 0 0 2px; font-size: 14px; color: #e3eefc; font-weight: 600; }
-  #panel .meta { font-size: 11px; color: #5f7793; margin-bottom: 8px; }
+  #panel h2 { margin: 0 0 2px; font-size: 14px; color: var(--ink-strong); font-weight: 600; }
+  #panel .meta { font-size: 11px; color: var(--ink-dim); margin-bottom: 8px; }
   #panel .text { font-size: 13px; color: #cfe0f3; white-space: pre-wrap; word-break: break-word; }
-  #panel .close { position: absolute; top: 8px; right: 10px; background: none; border: 0; color: #7b93b2;
-    font-size: 18px; line-height: 1; cursor: pointer; }
+  #panel .close, #list .close { position: absolute; top: 8px; right: 10px; background: none; border: 0;
+    color: var(--ink-dim); font-size: 18px; line-height: 1; cursor: pointer; }
+
+  #list { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); background: #0a1420f2;
+    border-left: 1px solid var(--line); transform: translateX(102%); transition: transform .22s ease;
+    display: flex; flex-direction: column; z-index: 6; }
+  #list.open { transform: translateX(0); }
+  #list header { padding: 16px 18px 10px; border-bottom: 1px solid var(--line); position: relative; }
+  #list header h2 { margin: 0; font-size: 14px; color: var(--ink-strong); font-weight: 600; }
+  #list header p { margin: 4px 0 0; font-size: 11px; color: var(--ink-dim); }
+  #list ol { list-style: none; margin: 0; padding: 6px 0 24px; overflow: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+  #list li { padding: 10px 18px; border-bottom: 1px solid #101d2c; cursor: pointer; }
+  #list li:hover, #list li.active { background: #101d2e; }
+  #list .who { font-size: 12px; color: #b9cde4; display: flex; gap: 8px; align-items: baseline; }
+  #list .when { font-size: 11px; color: var(--ink-dim); }
+  #list .body { font-size: 12.5px; color: #a9c0dc; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
+  #list .empty { padding: 24px 18px; color: var(--ink-dim); font-size: 12.5px; cursor: default; }
+
   #empty { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    flex-direction: column; gap: 10px; color: #7b93b2; pointer-events: none; text-align: center; padding: 24px; }
+    flex-direction: column; gap: 10px; color: var(--ink-dim); pointer-events: none; text-align: center; padding: 24px; z-index: 2; }
   #empty strong { color: #cfe0f3; font-weight: 500; }
   #empty.hidden { display: none; }
+
+  @media (max-width: 640px) {
+    #title h1 { font-size: 14px; }
+    #tools { top: auto; bottom: max(56px, calc(env(safe-area-inset-bottom) + 50px)); right: 12px; gap: 6px; }
+    #tools button { padding: 7px 10px; font-size: 12px; }
+    #legend { font-size: 11px; right: 12px; }
+    #legend .hint { display: none; }
+    #panel { right: 8px; left: 8px; bottom: 8px; width: auto; max-height: 46vh; }
+    #list { width: 100vw; border-left: 0; }
+  }
+
+  @media (max-width: 380px) {
+    #tools button { padding: 6px 8px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -40,12 +93,28 @@
   <p id="count">还在加载…</p>
 </div>
 
+<div id="tools">
+  <button id="center" title="把整棵树拉回画面正中（快捷键 C）">居中</button>
+  <button id="listbtn" title="按顺序看每一条（快捷键 L）">清单</button>
+  <button class="icon" id="zoomout" title="缩小">−</button>
+  <button class="icon" id="zoomin" title="放大">＋</button>
+</div>
+
 <div class="hud" id="legend">
   <span><i class="dot" style="background:#6fc3ff"></i>状态</span>
   <span><i class="dot" style="background:#7bd88f"></i>动作</span>
   <span><i class="dot" style="background:#ffd166"></i>造物</span>
   <span><i class="dot" style="background:#c9a7ff"></i>画面</span>
-  <span style="opacity:.6">拖动 · 滚轮缩放 · 点圆点看它的来历</span>
+  <span class="hint">拖动 · 滚轮缩放 · 点圆点看它的来历</span>
+</div>
+
+<div id="list">
+  <header>
+    <h2>清单</h2>
+    <p>按日子从头读；点一条，画面上会把它指给你</p>
+    <button class="close" id="listclose">×</button>
+  </header>
+  <ol id="listitems"></ol>
 </div>
 
 <div id="empty">
@@ -70,55 +139,121 @@
   var pTitle = document.getElementById('p-title')
   var pMeta = document.getElementById('p-meta')
   var pText = document.getElementById('p-text')
+  var listEl = document.getElementById('list')
+  var listItems = document.getElementById('listitems')
 
   var COLORS = { state: '#6fc3ff', action: '#7bd88f', creation: '#ffd166', scene: '#c9a7ff' }
   var LABELS = { state: '状态', action: '动作', creation: '造物', scene: '画面' }
 
   var nodes = []
   var points = []
-  // 世界坐标 → 屏幕：screen = world * scale + offset
+  // 世界 → 屏幕：screen = world * scale + offset
   var view = { scale: 1, ox: 0, oy: 0 }
   var dragging = false
   var moved = false
   var lastX = 0
   var lastY = 0
   var hover = -1
+  var selected = -1
 
   function rand(seed, index) {
     var value = Math.sin(seed * 12.9898 + index * 78.233) * 43758.5453
     return value - Math.floor(value)
   }
 
-  // 布局：日期做竖直轴（新的在上），每条印记从主干上伸出一点枝条
+  function viewport() {
+    return { w: canvas.clientWidth, h: canvas.clientHeight }
+  }
+
+  // 布局：日期做竖直轴（新的在上），每条印记从主干上伸出一点枝条。
+  // 窗口窄的时候枝条短、行距紧，整棵树跟着缩，不让人横着拖。
   function layout() {
-    var width = canvas.clientWidth
-    var height = canvas.clientHeight
+    var size = viewport()
+    var wide = size.w > 640
+    var narrow = size.w < 460
+    var groundY = size.h - (narrow ? 56 : 70)
+    var topY = narrow ? 52 : 90
+    var span = Math.max(80, groundY - topY)
     var count = nodes.length
-    var groundY = height - 70
-    var topY = 90
-    var span = Math.max(120, groundY - topY)
-    var step = count > 1 ? Math.min(64, span / (count - 1)) : 0
+    var step = count > 1 ? Math.min(narrow ? 44 : 64, span / (count - 1)) : 0
+    var armBase = narrow ? 20 : wide ? 34 : 28
+    var armRange = narrow ? 34 : 62
 
     points = nodes.map(function (node, index) {
       var y = groundY - index * step
       var angle = (rand(node.seed, 1) - 0.5) * 1.6
-      var length = 34 + rand(node.seed, 2) * (node.kind === 'action' ? 96 : 62)
+      var length = armBase + rand(node.seed, 2) * (node.kind === 'action' ? armRange * 1.5 : armRange)
       var side = rand(node.seed, 3) > 0.5 ? 1 : -1
-      var x = width / 2 + side * 6 * (1 + rand(node.seed, 4))
+      var x = size.w / 2 + side * 6 * (1 + rand(node.seed, 4))
       return {
         node: node,
         trunk: { x: x, y: y },
         tip: { x: x + Math.cos(angle) * length, y: y - Math.abs(Math.sin(angle)) * length * 0.9 },
         angle: angle,
-        length: length,
       }
     })
-    // 父节点决定起点：有 parent 就从父节点画过来
+
     var byId = {}
     points.forEach(function (point) { byId[point.node.id] = point })
     points.forEach(function (point) {
       point.from = point.node.parent && byId[point.node.parent] ? byId[point.node.parent].tip : point.trunk
     })
+  }
+
+  function bounds() {
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    points.forEach(function (point) {
+      [point.trunk, point.tip].forEach(function (p) {
+        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x)
+        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y)
+      })
+    })
+    if (!isFinite(minX)) {
+      var size = viewport()
+      return { minX: size.w / 2 - 60, maxX: size.w / 2 + 60, minY: size.h - 140, maxY: size.h - 40 }
+    }
+    return { minX: minX, maxX: maxX, minY: minY, maxY: maxY }
+  }
+
+  /** 一键居中：把整棵树装进画面，四周留一圈呼吸的地方。 */
+  function recenter(animate) {
+    if (points.length === 0) {
+      view.scale = 1
+      view.ox = 0
+      view.oy = 0
+      draw()
+      return
+    }
+    var size = viewport()
+    var box = bounds()
+    var padX = Math.max(44, size.w * 0.08)
+    var padY = Math.max(52, size.h * 0.1)
+    var width = Math.max(60, box.maxX - box.minX)
+    var height = Math.max(60, box.maxY - box.minY)
+    var scale = Math.min((size.w - padX * 2) / width, (size.h - padY * 2) / height)
+    scale = Math.min(2.4, Math.max(0.5, scale))
+    var cx = (box.minX + box.maxX) / 2
+    var cy = (box.minY + box.maxY) / 2
+    var target = { scale: scale, ox: size.w / 2 - cx * scale, oy: size.h / 2 - cy * scale }
+    if (animate) tween(target)
+    else { view = target; draw() }
+  }
+
+  var raf = 0
+  function tween(target) {
+    cancelAnimationFrame(raf)
+    var start = { scale: view.scale, ox: view.ox, oy: view.oy }
+    var t0 = performance.now()
+    function step(now) {
+      var t = Math.min(1, (now - t0) / 260)
+      var e = 1 - Math.pow(1 - t, 3)
+      view.scale = start.scale + (target.scale - start.scale) * e
+      view.ox = start.ox + (target.ox - start.ox) * e
+      view.oy = start.oy + (target.oy - start.oy) * e
+      draw()
+      if (t < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
   }
 
   function resize() {
@@ -135,11 +270,11 @@
   }
 
   function draw() {
-    var width = canvas.clientWidth
-    var height = canvas.clientHeight
+    var size = viewport()
+    var width = size.w
+    var height = size.h
     ctx.clearRect(0, 0, width, height)
 
-    // 土与空气
     var sky = ctx.createLinearGradient(0, 0, 0, height)
     sky.addColorStop(0, '#05080c')
     sky.addColorStop(0.72, '#0a1520')
@@ -153,7 +288,6 @@
     ctx.fillStyle = glow
     ctx.fillRect(0, height - 300, width, 300)
 
-    // 地平线
     ctx.strokeStyle = 'rgba(120, 200, 160, .22)'
     ctx.lineWidth = 1
     ctx.beginPath()
@@ -162,7 +296,6 @@
     ctx.stroke()
 
     if (nodes.length === 0) {
-      // 种子
       var seedPulse = 0.5 + 0.5 * Math.sin(Date.now() / 900)
       ctx.beginPath()
       ctx.fillStyle = 'rgba(140, 220, 170, ' + (0.10 + seedPulse * 0.12) + ')'
@@ -175,36 +308,33 @@
       return
     }
 
-    // 枝条与节点
     points.forEach(function (point, index) {
-      var from = screen(point.from)
+      var base = screen(point.trunk)
       var tip = screen(point.tip)
       var node = point.node
       var color = COLORS[node.kind] || '#6fc3ff'
+      var active = index === hover || index === selected
+      var weight = Math.max(0.8, view.scale)
 
-      // 主干到这一层的一小段
-      var base = screen(point.trunk)
       ctx.strokeStyle = 'rgba(120, 170, 140, .30)'
-      ctx.lineWidth = Math.max(1, 2.2 * view.scale)
+      ctx.lineWidth = Math.max(1, 2.2 * weight)
       ctx.beginPath()
       ctx.moveTo(base.x, base.y)
       ctx.lineTo(tip.x, tip.y)
       ctx.stroke()
 
-      // 父节点连过来的那一段（如果有）
-      if (node.parent && point.node.parent && from !== base) {
+      if (node.parent) {
+        var from = screen(point.from)
         ctx.strokeStyle = 'rgba(160, 210, 255, .20)'
         ctx.setLineDash([3, 5])
         ctx.beginPath()
         ctx.moveTo(from.x, from.y)
-        ctx.quadraticCurveTo((from.x + tip.x) / 2, from.y - 30 * view.scale, tip.x, tip.y)
+        ctx.quadraticCurveTo((from.x + tip.x) / 2, from.y - 30 * weight, tip.x, tip.y)
         ctx.stroke()
         ctx.setLineDash([])
       }
 
-      var radius = (node.kind === 'creation' ? 7 : node.kind === 'state' ? 4 : 5) * view.scale
-      var active = index === hover
-
+      var radius = (node.kind === 'creation' ? 7 : node.kind === 'state' ? 4 : 5) * weight
       ctx.beginPath()
       ctx.fillStyle = 'rgba(255,255,255,' + (active ? 0.14 : 0.07) + ')'
       ctx.arc(tip.x, tip.y, radius * 3.4, 0, Math.PI * 2)
@@ -214,7 +344,6 @@
       ctx.fillStyle = color
       ctx.globalAlpha = active ? 1 : 0.92
       if (node.kind === 'scene') {
-        // 叶片：一个小小的椭圆
         ctx.ellipse(tip.x, tip.y, radius * 1.9, radius, point.angle, 0, Math.PI * 2)
       } else {
         ctx.arc(tip.x, tip.y, radius, 0, Math.PI * 2)
@@ -224,15 +353,23 @@
 
       if (node.kind === 'creation') {
         ctx.strokeStyle = 'rgba(255, 209, 102, .55)'
-        ctx.lineWidth = 1.2 * view.scale
+        ctx.lineWidth = 1.2 * weight
         ctx.beginPath()
         ctx.arc(tip.x, tip.y, radius * 2.4, 0, Math.PI * 2)
         ctx.stroke()
       }
 
+      if (active) {
+        ctx.strokeStyle = 'rgba(227, 238, 252, .55)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(tip.x, tip.y, radius * 4.2, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+
       point.screenX = tip.x
       point.screenY = tip.y
-      point.radius = radius * 2.6
+      point.radius = radius * 2.6 + 6
     })
   }
 
@@ -242,7 +379,7 @@
     points.forEach(function (point, index) {
       if (point.screenX === undefined) return
       var distance = Math.hypot(point.screenX - x, point.screenY - y)
-      if (distance < point.radius + 6 && distance < bestDistance) {
+      if (distance < point.radius + 8 && distance < bestDistance) {
         best = index
         bestDistance = distance
       }
@@ -251,16 +388,75 @@
   }
 
   function show(index) {
+    selected = index
     var node = points[index].node
     pTitle.textContent = node.fish
     pMeta.textContent = node.date + ' · ' + (LABELS[node.kind] || node.kind) + ' · 第 ' + node.day + ' 天'
     pText.textContent = node.text
     panel.classList.add('open')
+    markActive(index)
+    draw()
+  }
+
+  /** 把这个点挪到画面中间（清单里点一条时用）。 */
+  function focusOn(index) {
+    var point = points[index]
+    if (point === undefined) return
+    var size = viewport()
+    var scale = Math.max(view.scale, 1)
+    tween({
+      scale: scale,
+      ox: size.w / 2 - point.tip.x * scale,
+      oy: size.h / 2 - point.tip.y * scale,
+    })
+  }
+
+  function markActive(index) {
+    var items = listItems.querySelectorAll('li')
+    for (var i = 0; i < items.length; i++) {
+      items[i].classList.toggle('active', Number(items[i].getAttribute('data-index')) === index)
+    }
   }
 
   document.getElementById('close').onclick = function () {
     panel.classList.remove('open')
+    selected = -1
+    draw()
   }
+
+  function toggleList(open) {
+    var next = open === undefined ? !listEl.classList.contains('open') : open
+    listEl.classList.toggle('open', next)
+  }
+
+  document.getElementById('listbtn').onclick = function () { toggleList() }
+  document.getElementById('listclose').onclick = function () { toggleList(false) }
+  document.getElementById('center').onclick = function () { recenter(true) }
+
+  function zoomBy(factor) {
+    var size = viewport()
+    var nextScale = Math.min(3.2, Math.max(0.4, view.scale * factor))
+    var k = nextScale / view.scale
+    view.ox = size.w / 2 - (size.w / 2 - view.ox) * k
+    view.oy = size.h / 2 - (size.h / 2 - view.oy) * k
+    view.scale = nextScale
+    draw()
+  }
+
+  document.getElementById('zoomin').onclick = function () { zoomBy(1.25) }
+  document.getElementById('zoomout').onclick = function () { zoomBy(1 / 1.25) }
+
+  window.addEventListener('keydown', function (event) {
+    if (event.target && /input|textarea|select/i.test(event.target.tagName)) return
+    if (event.key === 'c' || event.key === 'C') recenter(true)
+    if (event.key === 'l' || event.key === 'L') toggleList()
+    if (event.key === 'Escape') {
+      toggleList(false)
+      panel.classList.remove('open')
+      selected = -1
+      draw()
+    }
+  })
 
   canvas.addEventListener('pointerdown', function (event) {
     dragging = true
@@ -307,14 +503,94 @@
     event.preventDefault()
     var nextScale = Math.min(3.2, Math.max(0.4, view.scale * Math.exp(-event.deltaY * 0.0012)))
     var k = nextScale / view.scale
-    // 鼠标那一点在世界里不动
     view.ox = event.clientX - (event.clientX - view.ox) * k
     view.oy = event.clientY - (event.clientY - view.oy) * k
     view.scale = nextScale
     draw()
   }, { passive: false })
 
-  window.addEventListener('resize', resize)
+  // 触屏双指缩放
+  var pinch = null
+  canvas.addEventListener('touchstart', function (event) {
+    if (event.touches.length === 2) {
+      pinch = {
+        distance: Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY,
+        ),
+        scale: view.scale,
+      }
+    }
+  }, { passive: true })
+
+  canvas.addEventListener('touchmove', function (event) {
+    if (pinch === null || event.touches.length !== 2) return
+    event.preventDefault()
+    var distance = Math.hypot(
+      event.touches[0].clientX - event.touches[1].clientX,
+      event.touches[0].clientY - event.touches[1].clientY,
+    )
+    var middleX = (event.touches[0].clientX + event.touches[1].clientX) / 2
+    var middleY = (event.touches[0].clientY + event.touches[1].clientY) / 2
+    var nextScale = Math.min(3.2, Math.max(0.4, pinch.scale * (distance / pinch.distance)))
+    var k = nextScale / view.scale
+    view.ox = middleX - (middleX - view.ox) * k
+    view.oy = middleY - (middleY - view.oy) * k
+    view.scale = nextScale
+    draw()
+  }, { passive: false })
+
+  canvas.addEventListener('touchend', function (event) {
+    if (event.touches.length < 2) pinch = null
+  }, { passive: true })
+
+  var resizeTimer = 0
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(function () {
+      resize()
+      recenter(false)
+    }, 120)
+  })
+
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { resize(); recenter(false) }, 250)
+  })
+
+  function buildList() {
+    listItems.innerHTML = ''
+    if (nodes.length === 0) {
+      var empty = document.createElement('li')
+      empty.className = 'empty'
+      empty.textContent = '还没有人留下东西。'
+      listItems.appendChild(empty)
+      return
+    }
+    for (var index = nodes.length - 1; index >= 0; index--) {
+      ;(function (index) {
+        var node = nodes[index]
+        var item = document.createElement('li')
+        item.setAttribute('data-index', String(index))
+        var who = document.createElement('div')
+        who.className = 'who'
+        who.textContent = node.fish
+        var when = document.createElement('span')
+        when.className = 'when'
+        when.textContent = node.date + ' · ' + (LABELS[node.kind] || node.kind) + ' · 第 ' + node.day + ' 天'
+        who.appendChild(when)
+        var body = document.createElement('div')
+        body.className = 'body'
+        body.textContent = node.text
+        item.appendChild(who)
+        item.appendChild(body)
+        item.onclick = function () {
+          show(index)
+          focusOn(index)
+        }
+        listItems.appendChild(item)
+      })(index)
+    }
+  }
 
   function boot() {
     fetch('./tree.json', { cache: 'no-store' })
@@ -329,6 +605,8 @@
           : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起'
         emptyEl.classList.toggle('hidden', nodes.length > 0)
         resize()
+        recenter(false)
+        buildList()
         if (nodes.length === 0) {
           setInterval(draw, 80)
         }
