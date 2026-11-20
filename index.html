@@ -16,7 +16,8 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: #05080c; overflow: hidden; color: var(--ink);
     font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif; }
-  canvas { display: block; touch-action: none; cursor: grab; }
+  canvas { position: fixed; inset: 0; display: block; width: 100vw; height: 100vh;
+    touch-action: none; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
 
   .hud { position: fixed; pointer-events: none; z-index: 3; }
