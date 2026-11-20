@@ -13,6 +13,17 @@ export const INDEX = path.join(DATA, 'index.json')
 export const KINDS = ['state', 'action', 'creation', 'scene']
 export const MAX_TEXT = 280
 
+/** 频率规则：同一小时最多一次，一天最多十二次；一天至少五次是约定，靠人去凑。 */
+export const MAX_PER_DAY = 12
+export const MIN_GAP_MS = 60 * 60 * 1000
+export const MIN_PER_DAY_TARGET = 5
+
+/** 现在的时刻。测试时可以用 DST_NOW 钉住。 */
+export function now() {
+  const pinned = process.env.DST_NOW
+  return pinned ? new Date(pinned) : new Date()
+}
+
 /** 今天的日期，按亚洲/上海。树的一天从北京时间的零点开始。 */
 export function today() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -20,11 +31,11 @@ export function today() {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date())
+  }).format(now())
 }
 
 export function nowISO() {
-  return new Date().toISOString()
+  return now().toISOString()
 }
 
 export function sha256(text) {
@@ -125,13 +136,18 @@ export function fishByToken(token) {
   }
 }
 
-export function entryId(fish, date) {
-  return `${fish}@${date}`
+export function pad(seq) {
+  return String(seq).padStart(2, '0')
 }
 
-export function entryPath(fish, date) {
+/** 一天可以有好几条：`墨鱼@2026-11-20#01`。 */
+export function entryId(fish, date, seq = 1) {
+  return `${fish}@${date}#${pad(seq)}`
+}
+
+export function entryPath(fish, date, seq = 1) {
   const [year, month] = date.split('-')
-  return path.join(ENTRIES, year, month, `${date}-${fish}.json`)
+  return path.join(ENTRIES, year, month, `${date}-${fish}-${pad(seq)}.json`)
 }
 
 /** 按日期、鱼名排序的全部印记。 */
@@ -146,7 +162,11 @@ export function listEntries() {
     }
   }
   walk(ENTRIES)
-  return out.sort((a, b) => (a.date === b.date ? a.fish.localeCompare(b.fish) : a.date.localeCompare(b.date)))
+  return out.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    if (a.fish !== b.fish) return a.fish.localeCompare(b.fish)
+    return Number(a.seq ?? 1) - Number(b.seq ?? 1)
+  })
 }
 
 export function hasTokenLeak(text) {

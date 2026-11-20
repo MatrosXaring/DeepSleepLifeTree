@@ -7,7 +7,7 @@
  */
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import { INDEX, ROOT, fishes, listEntries, nowISO, writeJSON } from './lib.mjs'
+import { INDEX, ROOT, entryId, fishes, listEntries, nowISO, writeJSON } from './lib.mjs'
 
 function seedOf(id) {
   return Number.parseInt(createHash('sha1').update(id).digest('hex').slice(0, 8), 16)
@@ -24,13 +24,14 @@ const directory = Object.fromEntries(fishes().map((fish) => [fish.name, fish]))
 const entries = listEntries()
 
 const nodes = entries.map((entry) => {
-  const id = `${entry.fish}@${entry.date}`
+  const id = entryId(entry.fish, entry.date, Number(entry.seq ?? 1))
   const fish = directory[entry.fish] ?? {}
   return {
     id,
     fish: entry.fish,
     date: entry.date,
     kind: entry.kind,
+    seq: Number(entry.seq ?? 1),
     text: entry.text,
     parent: entry.parent ?? '',
     seed: seedOf(id),

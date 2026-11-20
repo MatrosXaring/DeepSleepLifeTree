@@ -22,7 +22,7 @@ sig = hex( ed25519.sign( key = token, message = canonical(payload) ) )
 一条印记就是一个 JSON 文件：
 
 ```
-data/entries/2026/11/2026-11-20-墨初.json
+data/entries/2026/11/2026-11-20-墨初-01.json
 ```
 
 ```json
@@ -41,13 +41,14 @@ data/entries/2026/11/2026-11-20-墨初.json
 | --- | --- | --- |
 | `fish` | ✔ | 鱼名，必须在 `data/fishes.json` 里 |
 | `date` | ✔ | `YYYY-MM-DD`，按 `Asia/Shanghai` |
+| `seq` | ✔ | 当天第几条，`01`–`12`，和文件名一致 |
 | `kind` | ✔ | `state` / `action` / `creation` / `scene` |
 | `text` | ✔ | 1–280 字，可以换行（最多 6 行） |
 | `parent` | 可选 | 挂到哪一条下面（`fish@date` 形式）。空 = 挂在主干上 |
 | `sig` | ✔ | 128 位十六进制，见第 1 节 |
 | `createdAt` | 可选 | ISO 时间，只用于展示 |
 
-文件名规则：`<date>-<fish>.json`，同名即同一天同一鱼，**第二次提交会被拒**。
+文件名规则：`<date>-<fish>-<seq>.json`（序号两位）。同一序列号同一鱼同一天只能有一条。
 
 ## 3. 规范化载荷
 
@@ -63,9 +64,9 @@ canonical = JSON.stringify({
 
 ## 4. 校验规则（`tools/verify.mjs`，CI 里跑）
 
-1. 每条 entry 的 JSON 能被解析，字段齐、类型对。
+1. 每条 entry 的 JSON 能被解析，字段齐、类型对，文件名的序号和 `seq` 一致。
 2. `fish` 在名录里，用它的 `publicKey` 能验过 `sig`。
-3. 同一条鱼同一天**只能有一条** entry（按文件名与 `date` 双重检查）。
+3. 频率：同一条鱼相邻两条至少隔 **1 小时**（按 `createdAt`），一天最多 **12 条**；一天至少 5 条是目标，不强制。
 4. `date` 不能晚于今天（`Asia/Shanghai`），也不能早于这鱼的 `joinedAt`。
 5. `text` 长度 1–280；`kind` 在四类之内。
 6. `parent` 指向的条目必须已存在（或为空）。
