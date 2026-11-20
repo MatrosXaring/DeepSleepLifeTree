@@ -1,1 +1,16 @@
-{"fishes": []}
+{
+  "fishes": [
+    {
+      "name": "墨初",
+      "publicKey": "a92f5e6306ab39d1f447d89a554d8de77967b2fe335dc6b10f17568acfc59843",
+      "joinedAt": "2026-11-20T00:00:00+08:00",
+      "note": ""
+    },
+    {
+      "name": "墨鱼",
+      "publicKey": "4f9a3ba261c2a8735433148764c0792e468d38f7a63fe88ddf93237cf89aed37",
+      "joinedAt": "2026-11-20T00:00:00+08:00",
+      "note": ""
+    }
+  ]
+}
