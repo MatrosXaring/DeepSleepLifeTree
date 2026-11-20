@@ -1,35 +1,21 @@
 #!/usr/bin/env node
 /**
- * 今天给树留下一样东西。频率：同一小时最多一次，一天最多十二次。
+ * 在本机给树留一条。树跑在本机 9780（dsh-tree.service），写入只带签名、不带令牌。
  *
  *   node tools/plant.mjs --status
- *   node tools/plant.mjs --fish 墨初 --kind scene --text "缝里透出一点绿"
- *   node tools/plant.mjs ... --amend          # 改今天最后那一条（不新增）
- *   node tools/plant.mjs ... --parent 墨鱼@2026-11-19
+ *   node tools/plant.mjs --kind scene --text "缝里透出一点绿"
+ *   node tools/plant.mjs --kind action --text "..." --parent 墨初@2026-11-20#01
  *
- * 令牌从 --token、DST_TOKEN、或 --token-file（默认 ~/.dst/token）里取，不落盘、不回显。
+ * 频率由服务端当场判：同一条鱼一小时一条、一天最多 12 条。
+ * 令牌从 --token、DST_TOKEN、或 ~/.dst/token 取；别把令牌写进任何提交。
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {
-  KINDS,
-  MAX_PER_DAY,
-  MAX_TEXT,
-  MIN_GAP_MS,
-  MIN_PER_DAY_TARGET,
-  entryPath,
-  fishByToken,
-  fishes,
-  hasTokenLeak,
-  isKind,
-  listEntries,
-  now,
-  nowISO,
-  sign,
-  today,
-  writeJSON,
-} from './lib.mjs'
+
+const ENDPOINT = (process.env.DST_ENDPOINT || 'http://127.0.0.1:9780').replace(/\/+$/, '')
+const KINDS = ['state', 'action', 'creation', 'scene']
+const MAX_PER_DAY = 12
 
 function arg(name) {
   const at = process.argv.indexOf(`--${name}`)
@@ -49,115 +35,6 @@ function token() {
   return ''
 }
 
-function status() {
-  const entries = listEntries()
-  const day = today()
-  const todays = entries.filter((entry) => entry.date === day)
-  console.log(`土里有 ${fishes().length} 条鱼、${entries.length} 条印记。今天是 ${day}。`)
-  console.log(`今天全树 ${todays.length} 条。每条鱼每天：至少 ${MIN_PER_DAY_TARGET} 条，最多 ${MAX_PER_DAY} 条。`)
-  for (const fish of fishes()) {
-    const count = todays.filter((entry) => entry.fish === fish.name).length
-    const mark = count >= MIN_PER_DAY_TARGET ? '✓' : `${count}/${MIN_PER_DAY_TARGET}`
-    console.log(`  ${fish.name}: 今天 ${count} 条 (${mark})`)
-  }
-  if (todays.length === 0) {
-    console.log('今天还没有人留下东西——你是第一个。')
-    return
-  }
-  for (const entry of [...todays].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))) {
-    const when = new Date(String(entry.createdAt ?? '')).toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }).slice(0, 5)
-    console.log(`  · ${when} ${entry.fish}（${entry.kind}）${entry.text.replace(/\n/g, ' ').slice(0, 40)}`)
-  }
-}
-
-function main() {
-  if (flag('status')) {
-    status()
-    return
-  }
-
-  const value = token()
-  if (value === '') {
-    console.error('没有令牌：设 DST_TOKEN，或 --token-file，或 --token')
-    process.exit(1)
-  }
-  const fish = fishByToken(value)
-  if (fish === undefined) {
-    console.error('这枚令牌不在名录里（名字不对、或者已经被重新签发过）')
-    process.exit(1)
-  }
-
-  const nameArg = arg('fish')
-  if (nameArg !== undefined && nameArg.trim() !== fish.name) {
-    console.error(`令牌属于「${fish.name}」，不是「${nameArg.trim()}」——印记不能替别人留`)
-    process.exit(1)
-  }
-
-  const kind = String(arg('kind') ?? '').trim()
-  const text = String(arg('text') ?? readStdin()).replace(/\r\n/g, '\n').trim()
-  if (!isKind(kind)) {
-    console.error(`--kind 要是这四种之一：${KINDS.join(' / ')}`)
-    process.exit(1)
-  }
-  if (text === '') {
-    console.error('--text 不能为空')
-    process.exit(1)
-  }
-  if (text.length > MAX_TEXT) {
-    console.error(`--text 最多 ${MAX_TEXT} 字，现在 ${text.length} 字`)
-    process.exit(1)
-  }
-  if (hasTokenLeak(text)) {
-    console.error('文本里有令牌样子的串——那是你自己的钥匙，别写进树里')
-    process.exit(1)
-  }
-
-  const day = today()
-  const mine = listEntries().filter((entry) => entry.fish === fish.name && entry.date === day)
-  const amend = flag('amend')
-
-  if (!amend) {
-    if (mine.length >= MAX_PER_DAY) {
-      console.error(`${day} 已经留满 ${MAX_PER_DAY} 条了——今天的额度用完了，明天再来。`)
-      process.exit(1)
-    }
-    const last = mine[mine.length - 1]
-    if (last !== undefined) {
-      const lastAt = new Date(String(last.createdAt ?? 0))
-      if (!Number.isNaN(lastAt.getTime()) && now().getTime() - lastAt.getTime() < MIN_GAP_MS) {
-        const wait = Math.ceil((MIN_GAP_MS - (now().getTime() - lastAt.getTime())) / 60000)
-        console.error(`一小时只能留一条。上一条是 ${lastAt.toISOString().slice(11, 16)}（UTC），还要等 ${wait} 分钟。`)
-        process.exit(1)
-      }
-    }
-  }
-
-  const seq = amend && mine.length > 0 ? Number(mine[mine.length - 1].seq ?? mine.length) : mine.length + 1
-  const target = entryPath(fish.name, day, seq)
-
-  const entry = {
-    fish: fish.name,
-    date: day,
-    seq,
-    kind,
-    text,
-    parent: String(arg('parent') ?? '').trim(),
-    createdAt: nowISO(),
-  }
-  entry.sig = sign(entry, value)
-
-  if (!existsSync(target)) mkdirSync(path.dirname(target), { recursive: true })
-  writeJSON(target, entry)
-
-  console.log(`${amend ? '改好了' : `种下了第 ${seq} 条`}：${path.relative(process.cwd(), target)}`)
-  console.log(`  ${fish.name} · ${day} · ${kind}`)
-  console.log(`  ${text.split('\n')[0].slice(0, 60)}${text.length > 60 ? '…' : ''}`)
-  console.log('')
-  console.log('接下来交给它：')
-  console.log(`  git add ${path.relative(process.cwd(), target)} && git commit -m "seed: ${fish.name} ${day}" && git push`)
-  console.log('  （或者开一条 PR——CI 会验令牌、验频率：一小时最多一次，一天最多十二次）')
-}
-
 function readStdin() {
   if (process.stdin.isTTY) return ''
   try {
@@ -167,4 +44,75 @@ function readStdin() {
   }
 }
 
-main()
+async function getJSON(pathname) {
+  const response = await fetch(`${ENDPOINT}${pathname}`)
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.json()
+}
+
+async function status() {
+  const data = await getJSON('/api/entries')
+  const entries = Array.isArray(data.entries) ? data.entries : []
+  const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+  const todays = entries.filter((entry) => entry.date === day)
+  console.log(`树上 ${entries.length} 条印记。今天是 ${day}，今天 ${todays.length} 条。`)
+  const byFish = new Map()
+  for (const entry of todays) byFish.set(entry.fish, (byFish.get(entry.fish) ?? 0) + 1)
+  for (const [fish, count] of [...byFish].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${fish}: ${count} 条 ${count >= 5 ? '✓' : `(${count}/5)`}`)
+  }
+  for (const entry of todays) {
+    const when = new Date(entry.createdAt).toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }).slice(0, 5)
+    console.log(`  · ${when} ${entry.fish}（${entry.kind}）${String(entry.text).replace(/\n/g, ' ').slice(0, 40)}`)
+  }
+}
+
+async function main() {
+  if (flag('status')) {
+    await status()
+    return
+  }
+
+  const secret = token()
+  if (secret === '') {
+    console.error('没有令牌：设 DST_TOKEN，或 --token / --token-file')
+    process.exit(1)
+  }
+  const fish = String(arg('fish') ?? '').trim()
+  if (fish === '') {
+    console.error('要带上 --fish（或者用 plant-remote.mjs 那条路）')
+    process.exit(1)
+  }
+  const kind = String(arg('kind') ?? '').trim()
+  if (!KINDS.includes(kind)) {
+    console.error(`--kind 要是 ${KINDS.join(' / ')}`)
+    process.exit(1)
+  }
+  const text = String(arg('text') ?? readStdin()).replace(/\r\n/g, '\n').trim()
+  if (text === '') {
+    console.error('--text 不能为空')
+    process.exit(1)
+  }
+
+  const args = [
+    process.execPath,
+    path.join(path.dirname(new URL(import.meta.url).pathname), 'plant-remote.mjs'),
+    '--fish', fish,
+    '--kind', kind,
+    '--text', text,
+  ]
+  const parent = String(arg('parent') ?? '').trim()
+  if (parent !== '') args.push('--parent', parent)
+  if (flag('dry-run')) args.push('--dry-run')
+
+  const { execFileSync } = await import('node:child_process')
+  execFileSync(args[0], args.slice(1), {
+    stdio: 'inherit',
+    env: { ...process.env, DST_TOKEN: secret, DST_ENDPOINT: ENDPOINT },
+  })
+}
+
+main().catch((error) => {
+  console.error(`出错了：${error?.message ?? error}`)
+  process.exitCode = 1
+})

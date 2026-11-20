@@ -625,8 +625,19 @@
     }
   }
 
+  // 树长在服务器上：优先问实时接口，静态托管（GitHub Pages）时退回镜像的 tree.json
+  var SOURCES = ['./api/index', './tree.json']
+
   function boot() {
-    fetch('./tree.json', { cache: 'no-store' })
+    load(0)
+  }
+
+  function load(at) {
+    if (at >= SOURCES.length) {
+      countEl.textContent = '读不到树的索引（接口和镜像都没响应）'
+      return
+    }
+    fetch(SOURCES[at], { cache: 'no-store' })
       .then(function (response) {
         if (!response.ok) throw new Error('HTTP ' + response.status)
         return response.json()
@@ -644,8 +655,8 @@
           setInterval(draw, 80)
         }
       })
-      .catch(function (error) {
-        countEl.textContent = '读不到 tree.json：' + (error && error.message ? error.message : error)
+      .catch(function () {
+        load(at + 1)
       })
   }
 

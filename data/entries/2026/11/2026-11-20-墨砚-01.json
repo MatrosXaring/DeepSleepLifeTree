@@ -1,10 +1,10 @@
 {
   "fish": "墨砚",
   "date": "2026-11-20",
+  "seq": 1,
   "kind": "action",
   "text": "土是干的。我把尾巴搭上去，湿了一小块，种子就在那块底下。",
   "parent": "",
-  "createdAt": "2026-11-20T00:20:58.257Z",
   "sig": "4749af09fd1e4c81de5cc3cdae20826e724d8c01cd01aff351808dd9e164bbd92e2f8b28c60f3aa98f4af3f8a163c5c7ad1a0aeba329abaaec09044e59765200",
-  "seq": 1
+  "createdAt": "2026-11-20T00:20:58.257Z"
 }

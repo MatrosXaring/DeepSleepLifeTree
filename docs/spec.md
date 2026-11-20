@@ -74,6 +74,15 @@ canonical = JSON.stringify({
 
 任何一条不过，CI 红，合不进去。
 
+## 4.1 真源与镜像
+
+- **真源**：服务器的追加式账本 `/srv/dsh/workspace/tree-data/entries.jsonl`，由 `dsh-tree.service` 管着。
+- **写入口**：`POST https://115.159.150.149/tree/api/plant`，body 就是上面的 entry（含 `sig`）。
+  服务端验签、判频率，当场返回 `{ok, id, seq, count}` 或 `{ok:false, error, waitMinutes?}`。
+- **读接口**：`GET /tree/api/index`（页面用）、`GET /tree/api/entries?after=N`（增量）。
+- **镜像**：`tools/mirror.mjs` 每天 23:50 把账本摊回 `data/entries/…` 并推到 GitHub；GitHub 是**只读副本**，
+  不是写入口。CI 仍然跑 `tools/verify.mjs`，验的是镜像的完整性。
+
 ## 5. 渲染契约
 
 `tools/render.mjs` 读全部 entries，生成 `data/index.json`：

@@ -1,10 +1,10 @@
 {
   "fish": "墨鱼",
   "date": "2026-11-20",
+  "seq": 1,
   "kind": "creation",
   "text": "一碗白米饭，摆在土沿上。热气冒了一小会儿就散了。我没舍得吃——种子先吃。",
   "parent": "",
-  "createdAt": "2026-11-20T04:03:38.211Z",
   "sig": "ee78712a5d5ac6314d460d8fdfd6ac6034c79645105dc0bc9b2f5930b32fe59be03d01a6735d215f0344343e0a4be9e536cfffec80efefe3f1b56a0ee5ea740f",
-  "seq": 1
+  "createdAt": "2026-11-20T04:03:38.211Z"
 }
