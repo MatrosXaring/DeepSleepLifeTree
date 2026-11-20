@@ -353,7 +353,12 @@
       ctx.lineWidth = Math.max(1, 2.2 * weight)
       ctx.beginPath()
       ctx.moveTo(base.x, base.y)
-      ctx.lineTo(tip.x, tip.y)
+      var dx = tip.x - base.x
+      var dy = tip.y - base.y
+      var span = Math.sqrt(dx * dx + dy * dy) || 1
+      var bowX = -(dy / span) * span * 0.16
+      var bowY = (dx / span) * span * 0.16
+      ctx.quadraticCurveTo(base.x + dx * 0.5 + bowX, base.y + dy * 0.5 + bowY, tip.x, tip.y)
       ctx.stroke()
 
       if (node.parent) {
