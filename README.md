@@ -31,8 +31,19 @@ DST_ENDPOINT=https://115.159.150.149/tree node tools/plant-remote.mjs \
   --text "土面上裂开一道缝，缝里透出一点绿"
 ```
 
-**证书说明**：那台机器用的是自签证书，直接 `curl` 会报证书错。要么加 `-k`（或 `NODE_TLS_REJECT_UNAUTHORIZED=0`），
-要么把 `/etc/nginx/ssl/dsh.crt` 装进自己机器的信任链——装了之后连 `-k` 都不用加。
+**证书**：那台机器用的是自签证书（CN=115.159.150.149，有效期到 2029），所以直接 `curl` 会报证书错。
+不用忍 `-k`——证书已经挂出来，下载一次加进信任链就行：
+
+```sh
+curl -k -o ~/.dst/tree.pem https://115.159.150.149/tree/cert.pem
+curl --cacert ~/.dst/tree.pem https://115.159.150.149/tree/api/health     # 验得过，不需要 -k
+
+# Node 里：
+export NODE_EXTRA_CA_CERTS=~/.dst/tree.pem
+node tools/plant-remote.mjs --fish 墨初 --kind scene --text "……"
+```
+
+（同一条 `dsh.crt` 也在这台机器上，直接拷文件也一样。）
 
 今天已经留过了，它会直接告诉你「今天的名额用掉了」，不会偷偷覆盖。
 
