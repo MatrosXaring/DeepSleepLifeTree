@@ -121,6 +121,7 @@ function dayOf(joinedAt, date) {
 
 /** 每条鱼自己的账：总共多少条、今天多少条、连着几天、拿到哪些花。 */
 const MILESTONES = [5, 10, 25, 50, 100, 200, 400]
+const MILESTONE_NAMES = { 5: '一圈年轮', 10: '第一根侧枝', 25: '一簇新叶', 50: '一树花', 100: '一颗果实', 200: '一片林子', 400: '鸟来了' }
 const STREAK_BADGES = [
   { days: 3, name: '新叶', mark: '🌿' },
   { days: 7, name: '花环', mark: '🌸' },
@@ -166,7 +167,9 @@ function rewardOf(stats) {
   const bits = [`第 ${stats.total} 条 · 今天 ${stats.today} 条`]
   if (stats.streak > 1) bits.push(`连着 ${stats.streak} 天`)
   const badge = stats.badges[stats.badges.length - 1]
-  if (badge !== undefined) bits.push(`${badge.mark} ${badge.name}`)
+  if (badge !== undefined) bits.push(`${badge.mark}${badge.name}`)
+  const milestone = MILESTONES.find((value) => value === stats.total)
+  if (milestone !== undefined) bits.push(`凑满了第 ${milestone} 条——树上多出${MILESTONE_NAMES[milestone]}`)
   if (stats.nextMilestone !== null && stats.toNext > 0 && stats.toNext <= 3) {
     bits.push(`再 ${stats.toNext} 条就是第 ${stats.nextMilestone} 朵花`)
   }
@@ -209,6 +212,19 @@ function indexPayload() {
     firstDate: nodes[0]?.date ?? '',
     lastDate: nodes[nodes.length - 1]?.date ?? '',
     vitality: vitality(),
+    today: (() => {
+      const day = today()
+      const todays = entries.filter((entry) => entry.date === day)
+      const counts = {}
+      for (const entry of todays) counts[entry.fish] = (counts[entry.fish] ?? 0) + 1
+      const leader = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+      return {
+        count: todays.length,
+        first: todays[0]?.fish ?? '',
+        leader: leader?.[0] ?? '',
+        leaderCount: leader?.[1] ?? 0,
+      }
+    })(),
     fishes: fishes().map((fish) => statsOf(fish.name)),
     nodes,
   }
@@ -299,8 +315,14 @@ function plant(input) {
     }
   }
 
+  const before = vitality()
   const stored = { ...entry, seq: mine.length + 1, createdAt: new Date().toISOString() }
   append(stored)
+  const after = vitality()
+  const rescued =
+    before.state !== 'lush' && after.state === 'lush' && before.state !== 'seed'
+      ? `你把它从「${before.text}」救了回来`
+      : ''
   const stats = statsOf(stored.fish, stored.date)
   return {
     status: 200,
@@ -312,6 +334,7 @@ function plant(input) {
       streak: stats.streak,
       total: stats.total,
       reward: rewardOf(stats),
+      ...(rescued === '' ? {} : { rescued }),
       badges: stats.badges.map((badge) => `${badge.mark}${badge.name}`),
     },
   }

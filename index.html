@@ -413,6 +413,14 @@
       point.screenY = tip.y
       point.radius = radius * 2.6 + 6
     })
+
+    // 没人照料，画面跟着暗下去：这是负反馈里最直白的一种
+    var VEIL = { lush: 0, dry: 0.24, wilting: 0.44, withered: 0.62, dead: 0.8 }
+    var veil = VEIL[VITALITY_STATE] ?? 0
+    if (veil > 0) {
+      ctx.fillStyle = 'rgba(6, 9, 12, ' + veil + ')'
+      ctx.fillRect(0, 0, width, height)
+    }
   }
 
   function findNode(x, y) {
@@ -637,6 +645,8 @@
   // 树长在服务器上：优先问实时接口，静态托管（GitHub Pages）时退回镜像的 tree.json
   var SOURCES = ['./api/index', './tree.json']
 
+  var VITALITY_STATE = 'lush'
+
   var VITALITY = {
     seed: '#5f7793',
     lush: '#7bd88f',
@@ -649,6 +659,7 @@
   // 没人照料，树会一点点枯：把这件事写在页面上，而不是只写在规则里
   function renderVitality(vitality) {
     if (vitality === undefined || vitalityEl === null) return
+    VITALITY_STATE = vitality.state || 'lush'
     var hours = vitality.hours
     var age = typeof hours === 'number'
       ? (hours < 1 ? '一小时内' : hours < 24 ? Math.round(hours) + ' 小时前' : Math.round(hours / 24) + ' 天前')
@@ -688,9 +699,13 @@
       })
       .then(function (data) {
         nodes = Array.isArray(data.nodes) ? data.nodes : []
+        var today = data.today || {}
+        var extra = today.count > 0
+          ? ' · 今天 ' + today.count + ' 条（' + (today.first ? today.first + ' 开的头' : '') + (today.leader && today.leaderCount > 1 ? '，' + today.leader + ' 领跑 ' + today.leaderCount + ' 条' : '') + '）'
+          : ''
         countEl.textContent = nodes.length === 0
           ? '还没有印记 · 第一条永远是最重的'
-          : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起'
+          : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起' + extra
         renderVitality(data.vitality)
         renderFishes(data.fishes)
         emptyEl.classList.toggle('hidden', nodes.length > 0)

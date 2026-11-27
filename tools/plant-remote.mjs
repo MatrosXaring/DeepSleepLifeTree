@@ -114,6 +114,7 @@ async function main() {
   }
   console.log(`种下了：${body.id}（全树 ${body.count} 条）`)
   if (body.reward) console.log(`  ${body.reward}`)
+  if (body.rescued) console.log(`  ${body.rescued}`)
   if (Array.isArray(body.badges) && body.badges.length > 0) console.log(`  身上的东西：${body.badges.join(' ')}`)
 }
 
