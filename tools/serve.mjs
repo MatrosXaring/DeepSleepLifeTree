@@ -119,6 +119,60 @@ function dayOf(joinedAt, date) {
   return Math.max(1, Math.round((now - start) / 86_400_000) + 1)
 }
 
+/** 每条鱼自己的账：总共多少条、今天多少条、连着几天、拿到哪些花。 */
+const MILESTONES = [5, 10, 25, 50, 100, 200, 400]
+const STREAK_BADGES = [
+  { days: 3, name: '新叶', mark: '🌿' },
+  { days: 7, name: '花环', mark: '🌸' },
+  { days: 14, name: '垂枝', mark: '🍃' },
+  { days: 30, name: '结果', mark: '🍎' },
+]
+
+function statsOf(name, day = today()) {
+  const mine = entries.filter((entry) => entry.fish === name)
+  const todayCount = mine.filter((entry) => entry.date === day).length
+  const days = [...new Set(mine.map((entry) => entry.date))].sort()
+  let streak = 0
+  if (days.length > 0) {
+    let cursor = day
+    // 今天没写就从昨天开始数，别让“今天还没写”直接打断连击
+    if (!days.includes(cursor)) {
+      const yesterday = new Date(Date.parse(`${day}T00:00:00+08:00`) - 86_400_000)
+      cursor = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(yesterday)
+    }
+    while (days.includes(cursor)) {
+      streak += 1
+      const prev = new Date(Date.parse(`${cursor}T00:00:00+08:00`) - 86_400_000)
+      cursor = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(prev)
+    }
+  }
+  const reached = MILESTONES.filter((value) => mine.length >= value)
+  const next = MILESTONES.find((value) => mine.length < value) ?? null
+  const badges = STREAK_BADGES.filter((badge) => streak >= badge.days)
+  return {
+    name,
+    total: mine.length,
+    today: todayCount,
+    streak,
+    nextMilestone: next,
+    toNext: next === null ? 0 : next - mine.length,
+    badges,
+    flowers: reached.length,
+  }
+}
+
+/** 写完之后给一句即时反馈：让你知道这一笔换来了什么。 */
+function rewardOf(stats) {
+  const bits = [`第 ${stats.total} 条 · 今天 ${stats.today} 条`]
+  if (stats.streak > 1) bits.push(`连着 ${stats.streak} 天`)
+  const badge = stats.badges[stats.badges.length - 1]
+  if (badge !== undefined) bits.push(`${badge.mark} ${badge.name}`)
+  if (stats.nextMilestone !== null && stats.toNext > 0 && stats.toNext <= 3) {
+    bits.push(`再 ${stats.toNext} 条就是第 ${stats.nextMilestone} 朵花`)
+  }
+  return bits.join(' · ')
+}
+
 /** 树的元气：多久没人留东西了。没人管，它就一点点枯。 */
 function vitality() {
   const last = entries[entries.length - 1]
@@ -155,6 +209,7 @@ function indexPayload() {
     firstDate: nodes[0]?.date ?? '',
     lastDate: nodes[nodes.length - 1]?.date ?? '',
     vitality: vitality(),
+    fishes: fishes().map((fish) => statsOf(fish.name)),
     nodes,
   }
 }
@@ -246,9 +301,19 @@ function plant(input) {
 
   const stored = { ...entry, seq: mine.length + 1, createdAt: new Date().toISOString() }
   append(stored)
+  const stats = statsOf(stored.fish, stored.date)
   return {
     status: 200,
-    body: { ok: true, id: `${stored.fish}@${stored.date}#${String(stored.seq).padStart(2, '0')}`, seq: stored.seq, count: entries.length },
+    body: {
+      ok: true,
+      id: `${stored.fish}@${stored.date}#${String(stored.seq).padStart(2, '0')}`,
+      seq: stored.seq,
+      count: entries.length,
+      streak: stats.streak,
+      total: stats.total,
+      reward: rewardOf(stats),
+      badges: stats.badges.map((badge) => `${badge.mark}${badge.name}`),
+    },
   }
 }
 

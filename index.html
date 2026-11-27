@@ -93,6 +93,7 @@
   <h1>沉睡生命之树</h1>
   <p id="count">还在加载…</p>
   <p id="vitality" style="margin:6px 0 0;font-size:12px;color:#7b93b2"></p>
+  <p id="fishes" style="margin:6px 0 0;font-size:12px;color:#7b93b2;display:flex;gap:12px;flex-wrap:wrap"></p>
 </div>
 
 <div id="tools">
@@ -137,6 +138,7 @@
   var ctx = canvas.getContext('2d')
   var countEl = document.getElementById('count')
   var vitalityEl = document.getElementById('vitality')
+  var fishesEl = document.getElementById('fishes')
   var emptyEl = document.getElementById('empty')
   var panel = document.getElementById('panel')
   var pTitle = document.getElementById('p-title')
@@ -655,6 +657,21 @@
     vitalityEl.style.color = VITALITY[vitality.state] || '#7b93b2'
   }
 
+  // 每条鱼自己的账：今天几条、连着几天、身上挂着什么
+  function renderFishes(list) {
+    if (fishesEl === null || !Array.isArray(list)) return
+    fishesEl.innerHTML = ''
+    list.forEach(function (fish) {
+      var chip = document.createElement('span')
+      var marks = (fish.badges || []).map(function (badge) { return badge.mark }).join('')
+      chip.textContent = fish.name + ' ' + fish.today + ' 条'
+        + (fish.streak > 1 ? ' · 连 ' + fish.streak + ' 天' : '')
+        + (marks ? ' ' + marks : '')
+      chip.style.color = fish.today > 0 ? '#a9c0dc' : '#5f7793'
+      fishesEl.appendChild(chip)
+    })
+  }
+
   function boot() {
     load(0)
   }
@@ -675,6 +692,7 @@
           ? '还没有印记 · 第一条永远是最重的'
           : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起'
         renderVitality(data.vitality)
+        renderFishes(data.fishes)
         emptyEl.classList.toggle('hidden', nodes.length > 0)
         resize()
         recenter(false)
