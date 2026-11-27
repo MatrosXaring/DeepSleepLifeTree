@@ -202,6 +202,7 @@ function indexPayload() {
       text: entry.text,
       parent: entry.parent ?? '',
       seed: seedOf(id),
+      at: entry.createdAt,
       day: dayOf(directory[entry.fish]?.joinedAt, entry.date),
     }
   })
