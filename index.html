@@ -92,6 +92,7 @@
 <div class="hud" id="title">
   <h1>沉睡生命之树</h1>
   <p id="count">还在加载…</p>
+  <p id="vitality" style="margin:6px 0 0;font-size:12px;color:#7b93b2"></p>
 </div>
 
 <div id="tools">
@@ -135,6 +136,7 @@
   var canvas = document.getElementById('tree')
   var ctx = canvas.getContext('2d')
   var countEl = document.getElementById('count')
+  var vitalityEl = document.getElementById('vitality')
   var emptyEl = document.getElementById('empty')
   var panel = document.getElementById('panel')
   var pTitle = document.getElementById('p-title')
@@ -633,6 +635,26 @@
   // 树长在服务器上：优先问实时接口，静态托管（GitHub Pages）时退回镜像的 tree.json
   var SOURCES = ['./api/index', './tree.json']
 
+  var VITALITY = {
+    seed: '#5f7793',
+    lush: '#7bd88f',
+    dry: '#d9c27a',
+    wilting: '#d99a5b',
+    withered: '#c96b4a',
+    dead: '#8a3b2e'
+  }
+
+  // 没人照料，树会一点点枯：把这件事写在页面上，而不是只写在规则里
+  function renderVitality(vitality) {
+    if (vitality === undefined || vitalityEl === null) return
+    var hours = vitality.hours
+    var age = typeof hours === 'number'
+      ? (hours < 1 ? '一小时内' : hours < 24 ? Math.round(hours) + ' 小时前' : Math.round(hours / 24) + ' 天前')
+      : ''
+    vitalityEl.textContent = '树的状态：' + (vitality.text || '') + (age ? ' · 上次有人留东西：' + age : '')
+    vitalityEl.style.color = VITALITY[vitality.state] || '#7b93b2'
+  }
+
   function boot() {
     load(0)
   }
@@ -652,6 +674,7 @@
         countEl.textContent = nodes.length === 0
           ? '还没有印记 · 第一条永远是最重的'
           : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起'
+        renderVitality(data.vitality)
         emptyEl.classList.toggle('hidden', nodes.length > 0)
         resize()
         recenter(false)

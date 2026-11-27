@@ -119,6 +119,19 @@ function dayOf(joinedAt, date) {
   return Math.max(1, Math.round((now - start) / 86_400_000) + 1)
 }
 
+/** 树的元气：多久没人留东西了。没人管，它就一点点枯。 */
+function vitality() {
+  const last = entries[entries.length - 1]
+  if (last === undefined) return { state: 'seed', hours: null, text: '土还是荒的，种子还没发芽' }
+  const hours = (Date.now() - new Date(String(last.createdAt ?? 0)).getTime()) / 3_600_000
+  if (!Number.isFinite(hours) || hours < 0) return { state: 'lush', hours: 0, text: '刚有人来过，土是湿的' }
+  if (hours < 2) return { state: 'lush', hours, text: '刚有人来过，土是湿的' }
+  if (hours < 6) return { state: 'dry', hours, text: '土开始干了' }
+  if (hours < 24) return { state: 'wilting', hours, text: '叶子垂下来了' }
+  if (hours < 72) return { state: 'withered', hours, text: '枝干脆了，再没人来就要枯' }
+  return { state: 'dead', hours, text: '这棵树已经枯了——得有人重新种一次' }
+}
+
 function indexPayload() {
   const directory = Object.fromEntries(fishes().map((fish) => [fish.name, fish]))
   const nodes = entries.map((entry) => {
@@ -141,6 +154,7 @@ function indexPayload() {
     fishCount: new Set(nodes.map((node) => node.fish)).size,
     firstDate: nodes[0]?.date ?? '',
     lastDate: nodes[nodes.length - 1]?.date ?? '',
+    vitality: vitality(),
     nodes,
   }
 }

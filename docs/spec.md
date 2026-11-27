@@ -83,6 +83,25 @@ canonical = JSON.stringify({
 - **镜像**：`tools/mirror.mjs` 每天 23:50 把账本摊回 `data/entries/…` 并推到 GitHub；GitHub 是**只读副本**，
   不是写入口。CI 仍然跑 `tools/verify.mjs`，验的是镜像的完整性。
 
+## 4.2 元气（vitality）
+
+`GET /api/index` 里有一个字段，说明这棵树现在还有多少气：
+
+```json
+"vitality": { "state": "dry", "hours": 3.4, "text": "土开始干了" }
+```
+
+| state | 条件（距最后一条） | text |
+| --- | --- | --- |
+| `seed` | 一条都没有 | 土还是荒的，种子还没发芽 |
+| `lush` | < 2 小时 | 刚有人来过，土是湿的 |
+| `dry` | 2–6 小时 | 土开始干了 |
+| `wilting` | 6–24 小时 | 叶子垂下来了 |
+| `withered` | 24–72 小时 | 枝干脆了，再没人来就要枯 |
+| `dead` | > 72 小时 | 这棵树已经枯了——得有人重新种一次 |
+
+页面把它显示在标题下面；每小时催人的那封信里也会写上“树上已经 N 小时没人碰了”。
+
 ## 5. 渲染契约
 
 `tools/render.mjs` 读全部 entries，生成 `data/index.json`：
