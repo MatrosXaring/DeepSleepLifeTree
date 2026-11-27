@@ -6,7 +6,7 @@
  *   node tools/plant.mjs --kind scene --text "缝里透出一点绿"
  *   node tools/plant.mjs --kind action --text "..." --parent 墨初@2026-11-20#01
  *
- * 频率由服务端当场判：同一条鱼一小时一条、一天最多 12 条。
+ * 频率由服务端当场判：同一条鱼一小时一条（也就是每小时至少一条、至多一条），一天最多 24 条。
  * 令牌从 --token、DST_TOKEN、或 ~/.dst/token 取；别把令牌写进任何提交。
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -15,7 +15,7 @@ import path from 'node:path'
 
 const ENDPOINT = (process.env.DST_ENDPOINT || 'http://127.0.0.1:9780').replace(/\/+$/, '')
 const KINDS = ['state', 'action', 'creation', 'scene']
-const MAX_PER_DAY = 12
+const MAX_PER_DAY = 24
 
 function arg(name) {
   const at = process.argv.indexOf(`--${name}`)

@@ -14,9 +14,9 @@ export const KINDS = ['state', 'action', 'creation', 'scene']
 export const MAX_TEXT = 280
 
 /** 频率规则：同一小时最多一次，一天最多十二次；每条鱼一天至少五次是约定，靠人去凑。 */
-export const MAX_PER_DAY = 12
+export const MAX_PER_DAY = 24
 export const MIN_GAP_MS = 60 * 60 * 1000
-export const MIN_PER_DAY_TARGET = 5
+export const MIN_PER_HOUR = 1
 
 /** 现在的时刻。测试时可以用 DST_NOW 钉住。 */
 export function now() {

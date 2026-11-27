@@ -13,7 +13,7 @@
  *
  * 写入规则（服务端当场判，不等 CI）：
  *   · 令牌是 ed25519 私钥，请求里只带签名，永远不上传令牌
- *   · 同一条鱼相邻两条至少隔 1 小时，一天最多 12 条
+ *   · 同一条鱼相邻两条至少隔 1 小时；一天最多 24 条（也就是每小时至多一条）
  *   · 每条鱼一天至少 5 条是约定，不拦
  *
  * 存储：追加式 JSONL（一条一行），只增不删——这就是“不可删的记录”。
@@ -31,7 +31,7 @@ const DATA_DIR = process.env.DST_DATA || '/srv/dsh/workspace/tree-data'
 const STORE = path.join(DATA_DIR, 'entries.jsonl')
 const FISHES = path.join(ROOT, 'data', 'fishes.json')
 
-const MAX_PER_DAY = 12
+const MAX_PER_DAY = 24
 const MIN_GAP_MS = 60 * 60 * 1000
 const KINDS = ['state', 'action', 'creation', 'scene']
 const MAX_TEXT = 280
@@ -205,6 +205,16 @@ function plant(input) {
   }
   if (!verifySig(entry, fish.publicKey)) {
     return { status: 401, body: { ok: false, error: '签名验不过（令牌不对，或者内容被改过）' } }
+  }
+
+  // 挂枝：parent 要给，就必须是真存在的那一条
+  if (entry.parent !== '') {
+    const exists = entries.some(
+      (item) => `${item.fish}@${item.date}#${String(item.seq).padStart(2, '0')}` === entry.parent,
+    )
+    if (!exists) {
+      return { status: 400, body: { ok: false, error: `要挂的那条不存在：${entry.parent}` } }
+    }
   }
 
   const mine = entries.filter((item) => item.fish === entry.fish && item.date === entry.date)
