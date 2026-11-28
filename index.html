@@ -25,6 +25,16 @@
   #title h1 { margin: 0; font-size: 15px; letter-spacing: 2px; color: var(--ink-strong); font-weight: 600; }
   #title p { margin: 4px 0 0; font-size: 12px; color: var(--ink-dim); }
 
+  #announce { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top));
+    transform: translateX(-50%); width: min(680px, calc(100vw - 32px)); z-index: 7;
+    background: rgba(20, 32, 48, .96); border: 1px solid #2a4260; border-radius: 12px;
+    padding: 12px 40px 12px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  #announce strong { color: #ffd166; font-size: 12px; letter-spacing: 1px; margin-right: 8px; }
+  #announce span { color: #5f7793; font-size: 11px; }
+  #announce p { margin: 6px 0 0; color: #cfe0f3; font-size: 13px; white-space: pre-wrap; }
+  #announce button { position: absolute; top: 6px; right: 10px; background: none; border: 0;
+    color: #7b93b2; font-size: 18px; line-height: 1; cursor: pointer; }
+
   #tools { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
     display: flex; gap: 8px; z-index: 4; }
   #tools button { background: rgba(18, 30, 46, .92); color: #b9cde4; border: 1px solid #20344c;
@@ -89,6 +99,13 @@
 <body>
 <canvas id="tree"></canvas>
 
+<div id="announce" hidden>
+  <strong>公告</strong>
+  <span id="announce-time"></span>
+  <button id="announce-close" title="收起">×</button>
+  <p id="announce-text"></p>
+</div>
+
 <div class="hud" id="title">
   <h1>沉睡生命之树</h1>
   <p id="count">还在加载…</p>
@@ -139,6 +156,9 @@
   var countEl = document.getElementById('count')
   var vitalityEl = document.getElementById('vitality')
   var fishesEl = document.getElementById('fishes')
+  var announceEl = document.getElementById('announce')
+  var announceText = document.getElementById('announce-text')
+  var announceTime = document.getElementById('announce-time')
   var emptyEl = document.getElementById('empty')
   var panel = document.getElementById('panel')
   var pTitle = document.getElementById('p-title')
@@ -683,6 +703,36 @@
     })
   }
 
+  // 公告：规则一变就挂一条；同一个 id 收起来过就不再烦你
+  function renderAnnouncement(item) {
+    if (announceEl === null || !item || !item.text) return
+    try {
+      if (localStorage.getItem('dst-announce-dismissed') === item.id) return
+    } catch (error) {
+      // 隐私模式下拿不到 localStorage，就每次都显示
+    }
+    announceText.textContent = item.text
+    var at = item.at ? new Date(item.at) : null
+    announceTime.textContent = at === null || Number.isNaN(at.getTime())
+      ? ''
+      : at.toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    announceEl.hidden = false
+    announceEl.dataset.id = item.id
+  }
+
+  var announceClose = document.getElementById('announce-close')
+  if (announceClose !== null) {
+    announceClose.addEventListener('click', function () {
+      if (announceEl === null) return
+      try {
+        localStorage.setItem('dst-announce-dismissed', announceEl.dataset.id || '')
+      } catch (error) {
+        // 存不下就只是这次关掉
+      }
+      announceEl.hidden = true
+    })
+  }
+
   function boot() {
     load(0)
   }
@@ -706,6 +756,7 @@
         countEl.textContent = nodes.length === 0
           ? '还没有印记 · 第一条永远是最重的'
           : data.count + ' 条印记 · ' + data.fishCount + ' 条鱼 · ' + data.firstDate + ' 起' + extra
+        renderAnnouncement(data.announcement)
         renderVitality(data.vitality)
         renderFishes(data.fishes)
         emptyEl.classList.toggle('hidden', nodes.length > 0)

@@ -18,8 +18,8 @@
  *
  * 存储：追加式 JSONL（一条一行），只增不删——这就是“不可删的记录”。
  */
-import { createHash, createPublicKey, verify as cryptoVerify } from 'node:crypto'
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { createHash, createPublicKey, randomBytes, verify as cryptoVerify } from 'node:crypto'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -29,6 +29,8 @@ const PORT = Number(process.env.PORT || 9780)
 const HOST = process.env.HOST || '127.0.0.1'
 const DATA_DIR = process.env.DST_DATA || '/srv/dsh/workspace/tree-data'
 const STORE = path.join(DATA_DIR, 'entries.jsonl')
+const ANNOUNCE = path.join(DATA_DIR, 'announcements.jsonl')
+const ADMIN_TOKEN = path.join(DATA_DIR, 'admin.token')
 const FISHES = path.join(ROOT, 'data', 'fishes.json')
 
 const MAX_PER_DAY = 24
@@ -99,6 +101,29 @@ function load() {
     }
   }
   entries.sort((a, b) => (a.date === b.date ? Number(a.seq) - Number(b.seq) : a.date.localeCompare(b.date)))
+}
+
+const announcements = []
+
+function loadAnnouncements() {
+  if (!existsSync(ANNOUNCE)) return
+  for (const line of readFileSync(ANNOUNCE, 'utf8').split('\n')) {
+    if (line.trim() === '') continue
+    try {
+      announcements.push(JSON.parse(line))
+    } catch {
+      // 坏行跳过
+    }
+  }
+}
+
+/** 管理口令：首次启动生成一枚，只给本机读。 */
+function adminToken() {
+  if (existsSync(ADMIN_TOKEN)) return readFileSync(ADMIN_TOKEN, 'utf8').trim()
+  const value = randomBytes(24).toString('hex')
+  mkdirSync(DATA_DIR, { recursive: true })
+  writeFileSync(ADMIN_TOKEN, value, { mode: 0o600 })
+  return value
 }
 
 function append(entry) {
@@ -212,6 +237,7 @@ function indexPayload() {
     fishCount: new Set(nodes.map((node) => node.fish)).size,
     firstDate: nodes[0]?.date ?? '',
     lastDate: nodes[nodes.length - 1]?.date ?? '',
+    announcement: announcements[announcements.length - 1] ?? null,
     vitality: vitality(),
     today: (() => {
       const day = today()
@@ -385,6 +411,42 @@ const server = createServer(async (req, res) => {
       json(res, 200, { ok: true, total: entries.length, entries: entries.slice(since) })
       return
     }
+    if (req.method === 'GET' && url.pathname === '/api/announcements') {
+      json(res, 200, { ok: true, total: announcements.length, items: announcements })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/announce') {
+      const header = String(req.headers.authorization ?? '')
+      const bearer = /^Bearer\s+(.+)$/i.exec(header)?.[1]?.trim() ?? ''
+      if (bearer === '' || bearer !== adminToken()) {
+        json(res, 401, { ok: false, error: '只有树的管理者能发公告' })
+        return
+      }
+      const body = await readBody(req)
+      let input
+      try {
+        input = JSON.parse(body || '{}')
+      } catch {
+        json(res, 400, { ok: false, error: 'body 不是 JSON' })
+        return
+      }
+      const text = String(input.text ?? '').trim()
+      if (text === '' || text.length > 2000) {
+        json(res, 400, { ok: false, error: '公告要 1–2000 字' })
+        return
+      }
+      const item = {
+        id: `${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`,
+        at: new Date().toISOString(),
+        kind: String(input.kind ?? 'rule').slice(0, 20),
+        text,
+      }
+      appendFileSync(ANNOUNCE, `${JSON.stringify(item)}\n`, { mode: 0o600 })
+      announcements.push(item)
+      json(res, 200, { ok: true, item })
+      return
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/plant') {
       const body = await readBody(req)
       let input
@@ -405,6 +467,8 @@ const server = createServer(async (req, res) => {
 })
 
 load()
+loadAnnouncements()
+adminToken()
 server.listen(PORT, HOST, () => {
   console.log(`生命之树 · ${HOST}:${PORT} · ${entries.length} 条印记 · ${STORE}`)
 })

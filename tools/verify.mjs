@@ -94,7 +94,7 @@ function check(file) {
     }
   }
 
-  const key = `${entry.fish}@${entry.date}#${fileSeq}`
+  const key = `${entry.fish}@${entry.date}#${String(fileSeq).padStart(2, '0')}`
   seen.set(key, (seen.get(key) ?? 0) + 1)
 }
 
